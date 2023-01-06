@@ -1,5 +1,6 @@
 ﻿// dllmain.cpp : Определяет точку входа для приложения DLL.
 #include <windows.h>
+#include <stdio.h>
 #include "dx11hk.h"
 
 #pragma comment(lib, "dx11hk.lib")
@@ -11,7 +12,13 @@ void hkPresent()
 
 void Main()
 {
-    dxhk::D3D11TrampolinePresentHook(hkPresent);
+    AllocConsole();
+    FILE* fDummy;
+    freopen_s(&fDummy, "CONIN$", "r", stdin);
+    freopen_s(&fDummy, "CONOUT$", "w", stderr);
+    freopen_s(&fDummy, "CONOUT$", "w", stdout);
+    dxhk::D3D11VMTPresentHook(hkPresent);
+    //dxhk::D3D11TrampolinePresentHook(hkPresent);
 }
 
 BOOL APIENTRY DllMain( HMODULE hModule,

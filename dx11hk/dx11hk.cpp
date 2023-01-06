@@ -6,6 +6,10 @@
 #include "ldisasm.h"
 
 #include <stdint.h>
+#include <psapi.h>
+#include <memory.h>
+
+#include <iostream>
 
 #define JMP_REL32_LEN 5
 #define JMP_ABS64_LEN 14
@@ -44,7 +48,7 @@ namespace dxhk
 		inline void JmpNear(void* from, void* to)	// x86/x64
 		{
 			byte jmp[JMP_REL32_LEN] = { 0xE9, 0x00, 0x00, 0x00, 0x00 };
-			*reinterpret_cast<int*>(&jmp[1]) = (unsigned long long)to - (unsigned long long)from - 5;
+			*reinterpret_cast<int*>(&jmp[1]) = (uint64_t)to - (uint64_t)from - 5;
 			memcpy(from, jmp, JMP_REL32_LEN);
 		}
 
@@ -53,16 +57,50 @@ namespace dxhk
 			byte jmp[JMP_ABS64_LEN];
 			*reinterpret_cast<uint16_t*>(&jmp[0]) = 0x25FF; // reverse ff 25
 			*reinterpret_cast<uint32_t*>(&jmp[2]) = 0;
-			*reinterpret_cast<unsigned long long*>(&jmp[6]) = (unsigned long long)to;
+			*reinterpret_cast<uint64_t*>(&jmp[6]) = (uint64_t)to;
 			memcpy(from, jmp, JMP_ABS64_LEN);
+		}
+
+		__nothrow void* FindPattern(const uint8_t* signature, const unsigned int length)
+		{
+			uint8_t* at = 0;
+			DWORD oldProtection = 0;
+			MEMORY_BASIC_INFORMATION mbi{};
+			while ((uint64_t)at < ULLONG_MAX)
+			{
+				VirtualQuery(at, &mbi, sizeof(MEMORY_BASIC_INFORMATION));
+				if (mbi.State == MEM_COMMIT)
+				{
+					if (VirtualProtect((LPVOID)mbi.BaseAddress, mbi.RegionSize, PAGE_EXECUTE_READWRITE, &oldProtection) == NULL)
+						goto skip;
+					// memmem
+					for (uint64_t i = 0; i <= mbi.RegionSize - length; i++)
+					{
+						void* sequenceHead = (uint8_t*)mbi.BaseAddress + i;
+						if (memcmp(sequenceHead, signature, length) == 0 && sequenceHead != signature)
+							return sequenceHead;
+					}
+					VirtualProtect((LPVOID)mbi.BaseAddress, mbi.RegionSize, oldProtection, &oldProtection);
+				}
+				skip:
+				at += mbi.RegionSize;
+			}
+			return NULL;
 		}
 		
 	} // namespace Anon
 
+
+	// Detected by many games
 	void* D3D11VMTPresentHook(void* fnDetour)
 	{
-		// TODO: copy first 20-25 bytes of dummy vtable, release dummy and pattern scan orig vtable, modify it
-		return NULL;
+		void** VMT = CreateDummy();
+		ReleaseDummy();
+		uint8_t signature[20];
+		memcpy(signature, VMT, 20);
+		void** origVMT = (void**)FindPattern(signature, 20);
+		*&origVMT[8] = fnDetour;
+		return origVMT;
 	}
 
 	void* D3D11TrampolinePresentHook(void* fnDetour)
