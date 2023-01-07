@@ -5,15 +5,19 @@ light directX11 hooking library
 - Trampoline hook
 ### Usage example
 ```
-void hkPresent()
+typedef HRESULT(*fnPresent_t)(void* pSwapchain, UINT SyncInterval, UINT Flags);
+fnPresent_t orig;
+
+HRESULT hkPresent(void* pSwapchain, UINT SyncInterval, UINT Flags)
 {
     // Do whatever you want
+    return orig(pSwapchain, SyncInterval, Flags);
 }
 
 void Main()
 {
-    // Create hook
-    dxhk::D3D11VMTPresentHook(hkPresent);
+    //dxhk::D3D11VMTPresentHook(hkPresent);
+    orig = (fnPresent_t)dxhk::D3D11TrampolinePresentHook(hkPresent);
 }
 
 BOOL APIENTRY DllMain( HMODULE hModule,
