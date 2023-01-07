@@ -99,8 +99,9 @@ namespace dxhk
 		uint8_t signature[20];
 		memcpy(signature, VMT, 20);
 		void** origVMT = (void**)FindPattern(signature, 20);
+		void* origPresent = *&origVMT[8];
 		*&origVMT[8] = fnDetour;
-		return origVMT;
+		return origPresent;
 	}
 
 	void* D3D11TrampolinePresentHook(void* fnDetour)
