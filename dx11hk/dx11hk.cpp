@@ -61,7 +61,7 @@ namespace dxhk
 			memcpy(from, jmp, JMP_ABS64_LEN);
 		}
 
-		__nothrow void* FindPattern(const uint8_t* signature, const unsigned int length)
+		void* FindPattern(const uint8_t* signature, const unsigned int length)
 		{
 			uint8_t* at = 0;
 			DWORD oldProtection = 0;
@@ -96,11 +96,8 @@ namespace dxhk
 	{
 		void** VMT = CreateDummy();
 		ReleaseDummy();
-		uint8_t signature[20];
-		memcpy(signature, VMT, 20);
-		void** origVMT = (void**)FindPattern(signature, 20);
-		void* origPresent = *&origVMT[8];
-		*&origVMT[8] = fnDetour;
+		void* origPresent = *&VMT[8];
+		*&VMT[8] = fnDetour;
 		return origPresent;
 	}
 
